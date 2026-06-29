@@ -1,14 +1,21 @@
-Добро пожаловать в мой рабочий репозиторий! Здесь собраны скрипты и инструменты, которые я разрабатываю для автоматизации ИТ-инфраструктуры, обеспечения отказоустойчивости и аудита безопасности. 
 
-Я специализируюсь на поддержке гетерогенных сетей (Windows/Linux) и стремлюсь минимизировать рутину с помощью кода, чтобы освободить время для архитектурных задач.
+
+![Windows Server](https://img.shields.io/badge/Windows_Server-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?style=for-the-badge&logo=powershell&logoColor=white)
+![Bash](https://img.shields.io/badge/Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+
+> **Добро пожаловать в мой рабочий репозиторий!** 
+> Здесь собраны скрипты и инструменты, которые я разрабатываю для автоматизации ИТ-инфраструктуры, обеспечения отказоустойчивости и аудита безопасности. Я специализируюсь на поддержке гетерогенных сетей (Windows/Linux) и стремлюсь минимизировать рутину с помощью кода, чтобы освободить время для архитектурных задач.
 
 ## 🛠 Технологический стек
 
-* **ОС:** Windows Server (AD, GPO, DNS), Linux (Debian/Ubuntu)
-* **Скриптинг:** PowerShell, Bash, Python
-* **Сети & Безопасность:** Модель OSI, VLAN, VPN (WireGuard, OpenVPN), Iptables, аудит логов
-* **Мониторинг & Бэкапы:** Zabbix, скриптовое резервное копирование с алертами
-* **Сервисы:** Web-серверы (Nginx/Apache), корпоративные мессенджеры, СУБД (PostgreSQL/MySQL)
+* 🖥️ **ОС:** Windows Server (AD, GPO, DNS), Linux (Debian/Ubuntu)
+* 📜 **Скриптинг:** PowerShell, Bash, Python
+* 🛡️ **Сети & Безопасность:** Модель OSI, VLAN, VPN (WireGuard, OpenVPN), Iptables, аудит логов
+* 📊 **Мониторинг & Бэкапы:** Zabbix, скриптовое резервное копирование с алертами
+* ⚙️ **Сервисы:** Web-серверы (Nginx/Apache), корпоративные мессенджеры, СУБД (PostgreSQL/MySQL)
 
 ---
 
@@ -16,25 +23,26 @@
 
 Репозиторий разделен на логические блоки в зависимости от решаемых задач:
 
-### 1. [AD_Management](./AD_Management)
+### 🔑 1. [AD_Management](./AD_Management)
 Инструменты для работы с Windows Server и доменами Active Directory.
 * `Create-AdUsers.ps1` — Скрипт для автоматизированного массового создания пользователей в AD из CSV-выгрузки. Включает генерацию логинов, безопасную установку первичных паролей, проверку дубликатов и подробное логирование операций.
 
-### 2. [Backup_Alerts](./Backup_Alerts)
+### 💾 2. [Backup_Alerts](./Backup_Alerts)
 Скрипты для обеспечения сохранности данных в Linux-средах.
 * `backup_with_tg_alert.sh` — Bash-скрипт для инкрементального резервного копирования директорий веб-проектов с автоматической ротацией старых архивов и отправкой статусных уведомлений (Success/Error) через Telegram Bot API.
 
-### 3. [Security_Audit](./Security_Audit)
+### 🚨 3. [Security_Audit](./Security_Audit)
 Утилиты для анализа безопасности и мониторинга инцидентов.
 * `ssh_brute_analyzer.py` — CLI-инструмент на Python для парсинга `auth.log`. Анализирует неудачные попытки входа по SSH и формирует топ агрессивных IP-адресов для последующей блокировки.
 
-### 4. [Network_Automation](./Network)
+### 🌐 4. [Network_Automation](./Network)
 Инструменты для конфигурации как кода (IaC) и управления сетевым оборудованием.
 * `mikrotik_auto_backup.sh` — Bash-скрипт для автоматического подключения к маршрутизаторам (MikroTik RouterOS) по SSH, создания дампа конфигурации (export) и безопасного скачивания архива на сервер с последующей ротацией.
 
-### 5. [Hardware_Monitoring](./Monitoring)
+### 🌡️ 5. [Hardware_Monitoring](./Monitoring)
 Скрипты для контроля физического состояния серверного оборудования.
 * `cpu_thermal_alert.sh` — Bash-скрипт на базе `lm-sensors` для отслеживания тепловых пакетов CPU. Предотвращает троттлинг и аппаратные сбои за счет отправки своевременных алертов при достижении критических температур.
+
 ---
 
 ## 💼 Практическое применение
