@@ -1,0 +1,522 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>SysAdmin Toolbox - СПбГУ</title>
+    <HTA:APPLICATION ID="AdminApp"
+        APPLICATIONNAME="SysAdminToolbox"
+        BORDER="thin" INNERBORDER="no" SCROLL="no" ICON="cmd.exe"
+        MAXIMIZEBUTTON="yes" MINIMIZEBUTTON="yes" SYSMENU="yes" WINDOWSTATE="normal" />
+    
+    <style>
+        * { box-sizing: border-box; }
+        body { background-color: #1e1e1e; color: #d4d4d4; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; overflow: hidden; }
+        
+        #sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 250px; background-color: #252526; border-right: 1px solid #333; padding: 20px; overflow-y: auto; }
+        #main { position: absolute; left: 250px; right: 0; top: 0; bottom: 0; padding: 30px; }
+        
+        h2 { font-size: 18px; margin-top: 0; color: #fff; }
+        h3 { font-size: 16px; color: #fff; margin-top: 0; margin-bottom: 15px; }
+        
+        .tool-btn { background-color: transparent; color: #ccc; border: 1px solid transparent; padding: 10px; width: 100%; text-align: left; cursor: pointer; margin-bottom: 5px; font-size: 14px; transition: 0.2s; border-radius: 4px; }
+        .tool-btn:hover { background-color: #2d2d30; color: #fff; border: 1px solid #555; }
+        .plugin-btn { border-left: 3px solid #007acc; }
+        .search-mode-btn { background-color: #28a745; color: white; font-weight: bold; text-align: center; border: none; }
+        .search-mode-btn:hover { background-color: #218838; }
+        
+        .add-btn { background-color: #007acc; color: #fff; text-align: center; border: none; padding: 12px; margin-bottom: 20px; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .add-btn:hover { background-color: #0098ff; }
+        
+        .header { width: 100%; height: 40px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        #toolTitle { float: left; font-size: 22px; margin: 0; color: #fff; font-weight: bold; }
+        #username { float: right; font-weight: bold; background-color: #2d2d30; padding: 6px 15px; border-radius: 4px; }
+        
+        /* Блоки режимов */
+        #terminalView { display: block; height: 100%; }
+        #searchView { display: none; height: 100%; }
+
+        /* Элементы режима терминала */
+        .target-box { background-color: #2d2d30; padding: 15px; margin-bottom: 15px; border: 1px solid #444; border-radius: 5px; }
+        input[type="text"] { background-color: #3e3e42; color: #fff; border: 1px solid #555; padding: 8px; font-size: 14px; border-radius: 3px; outline: none; }
+        input[type="text"]:focus { border-color: #007acc; }
+        #targetIp { width: 300px; }
+        textarea { width: 100%; background-color: #1e1e1e; color: #4af626; border: 1px solid #333; padding: 15px; font-family: Consolas, monospace; margin-bottom: 15px; font-size: 14px; resize: none; border-radius: 5px; height: calc(100% - 200px); }
+        button.run-btn { background-color: #007acc; color: white; border: none; padding: 12px 30px; cursor: pointer; font-weight: bold; float: right; font-size: 14px; border-radius: 4px; }
+        button.run-btn:hover:not(:disabled) { background-color: #0098ff; }
+        button.run-btn:disabled { background-color: #555; cursor: not-allowed; color: #888; }
+        
+        /* Элементы режима поиска */
+        .search-bar-container { text-align: center; margin-bottom: 20px; position: relative; }
+        #globalSearch { padding: 12px; font-size: 18px; border-radius: 20px; text-align: center; background-color: #1e1e1e; color: #00ff00; border: 2px solid #555; outline: none; }
+        #globalSearch:focus { border-color: #28a745; box-shadow: 0 0 10px rgba(40, 167, 69, 0.5); }
+        
+        .table-container { height: calc(100% - 150px); overflow-y: auto; border: 1px solid #444; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; background-color: #252526; }
+        th { background-color: #333; color: #ff6b6b; padding: 12px; text-align: left; font-size: 14px; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #555; border-right: 1px solid #444; }
+        td { padding: 10px 12px; border-bottom: 1px solid #333; border-right: 1px solid #333; font-size: 13px; color: #ccc; }
+        tr:hover td { background-color: #2a2d34; color: #fff; }
+        
+        /* Кнопка пинга в таблице */
+        .ping-row-btn { background-color: #333; color: #fff; border: 1px solid #555; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .ping-row-btn:hover { background-color: #007acc; border-color: #0098ff; }
+
+        /* Стили модальных окон */
+        #modalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; }
+        .modal-box { display: none; position: fixed; top: 50%; left: 50%; margin-left: -250px; margin-top: -240px; width: 500px; background-color: #252526; border: 1px solid #555; border-radius: 6px; padding: 25px; z-index: 1001; box-shadow: 0px 0px 20px rgba(0,0,0,0.8); }
+        .modal-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #ccc; }
+        .modal-input { width: 100%; margin-bottom: 15px; background-color: #3e3e42; color: #ccc; border: 1px solid #555; padding: 8px; border-radius: 3px; }
+    </style>
+    
+    <script language="JScript">
+        var baseTools = {
+            "sysinfo": { title: "Сбор данных (WMI)", desc: "Собирает: имя ПК, модель ОС, разрядность и серийный номер.", cmd: 'wmic /node:"{target}" os get CSName, Caption, OSArchitecture 2>&1 | findstr /r "." & wmic /node:"{target}" bios get serialnumber 2>&1 | findstr /r "."' },
+            "ping": { title: "Проверка сети (Ping)", desc: "Проверка доступности узла в сети.", cmd: 'ping {target} -n 4' },
+            "spooler": { title: "Сброс печати", desc: "Перезапуск службы диспетчера печати удаленно.", cmd: 'sc \\\\{target} stop spooler & timeout /t 3 >nul & sc \\\\{target} start spooler' }
+        };
+
+        var tools = {};
+        var currentTool = "";
+        var inventoryData = [];
+        var onlineStatuses = {};
+
+        window.onload = function() {
+            try { var net = new ActiveXObject("WScript.Network"); document.getElementById("username").innerText = "👤 " + net.UserName; } 
+            catch(e) { document.getElementById("username").innerText = "👤 Admin"; }
+            refreshMenu();
+            loadAdData();
+        }
+
+        function refreshMenu() {
+            tools = {};
+            for (var k in baseTools) tools[k] = baseTools[k];
+            loadPlugins();
+            renderMenu();
+        }
+
+        function getSafePath() {
+            try {
+                var loc = decodeURI(window.location.pathname);
+                if (loc.charAt(0) === '/' && loc.charAt(2) === ':') loc = loc.substr(1);
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                return fso.GetParentFolderName(loc.replace(/\//g, "\\"));
+            } catch(e) { return "."; }
+        }
+
+        function loadPlugins() {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var pluginsDir = getSafePath() + "\\plugins";
+                if (!fso.FolderExists(pluginsDir)) fso.CreateFolder(pluginsDir);
+
+                var fc = new Enumerator(fso.GetFolder(pluginsDir).Files);
+                for (; !fc.atEnd(); fc.moveNext()) {
+                    var file = fc.item();
+                    if (fso.GetExtensionName(file.name).toLowerCase() === "json") {
+                        try {
+                            var stream = new ActiveXObject("ADODB.Stream"); 
+                            stream.CharSet = "utf-8"; stream.Open(); stream.LoadFromFile(file.path);
+                            var text = stream.ReadText(); stream.Close();
+                            
+                            text = text.replace(/^\uFEFF/, '');
+                            var pData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
+                            pData.isPlugin = true; 
+                            tools["plug_" + fso.GetBaseName(file.name)] = pData;
+                        } catch(e) {}
+                    }
+                }
+            } catch(e) {}
+        }
+
+        function renderMenu() {
+            var html = '<button class="tool-btn search-mode-btn" onclick="activateSearchView()">🔍 УМНЫЙ ПОИСК УСТРОЙСТВ</button><hr style="border-color:#333; margin-bottom:15px;">';
+            for (var id in tools) {
+                var cssClass = tools[id].isPlugin ? "tool-btn plugin-btn" : "tool-btn";
+                html += '<button class="' + cssClass + '" onclick="selectTool(\'' + id + '\')">' + tools[id].title + '</button>';
+            }
+            document.getElementById("toolsList").innerHTML = html;
+        }
+
+        function selectTool(id) {
+            document.getElementById("searchView").style.display = "none";
+            document.getElementById("terminalView").style.display = "block";
+            currentTool = id;
+            document.getElementById("toolTitle").innerText = tools[id].title;
+            document.getElementById("output").value = tools[id].desc + "\n\nГотово к запуску.";
+            document.getElementById("runBtn").disabled = false;
+        }
+
+        function fixIpInput() {
+            var el = document.getElementById("targetIp");
+            if (el.value.indexOf(',') > -1) { el.value = el.value.replace(/,/g, '.'); }
+        }
+
+        function runTool() {
+            if (!currentTool) return;
+            fixIpInput();
+            var target = document.getElementById("targetIp").value;
+            if (target === "") { alert("Укажите целевой IP/Имя!"); return; }
+
+            var finalCmd = tools[currentTool].cmd.replace(/{target}/g, target);
+            var outBox = document.getElementById("output");
+            outBox.value = "Выполнение команды...\n" + finalCmd + "\n\nПожалуйста, подождите...";
+            document.getElementById("runBtn").disabled = true;
+
+            setTimeout(function() {
+                try {
+                    var shell = new ActiveXObject("WScript.Shell"); var fso = new ActiveXObject("Scripting.FileSystemObject");
+                    var tempFile = shell.ExpandEnvironmentStrings("%TEMP%") + "\\sysres.txt";
+                    shell.Run('cmd.exe /c (' + finalCmd + ') > "' + tempFile + '" 2>&1', 0, true);
+                    
+                    var res = "";
+                    if (fso.FileExists(tempFile)) {
+                        try {
+                            // Читаем в правильной консольной кодировке DOS (CP866), чтобы не было иероглифов
+                            var stream = new ActiveXObject("ADODB.Stream"); 
+                            stream.CharSet = "ibm866"; 
+                            stream.Open(); 
+                            stream.LoadFromFile(tempFile);
+                            if (!stream.EOS) res = stream.ReadText(); 
+                            stream.Close();
+                        } catch(es) {
+                            var f = fso.OpenTextFile(tempFile, 1); 
+                            if (!f.AtEndOfStream) res = f.ReadAll(); 
+                            f.Close();
+                        }
+                        fso.DeleteFile(tempFile);
+                    }
+                    outBox.value = "--- РЕЗУЛЬТАТ ---\n" + res;
+                } catch(e) { outBox.value = "ОШИБКА:\n" + e.message; }
+                document.getElementById("runBtn").disabled = false;
+            }, 50);
+        }
+
+        // ==========================
+        // ЛОГИКА ПОИСКА И БАЗЫ ДАННЫХ
+        // ==========================
+        function activateSearchView() {
+            document.getElementById("terminalView").style.display = "none";
+            document.getElementById("searchView").style.display = "block";
+            document.getElementById("toolTitle").innerText = "Глобальный поиск устройств (AD)";
+            renderTable(inventoryData);
+            document.getElementById("globalSearch").value = "";
+            document.getElementById("globalSearch").focus();
+        }
+
+        function loadAdData() {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var invFile = getSafePath() + "\\inventory.json";
+
+                if (fso.FileExists(invFile)) {
+                    var stream = new ActiveXObject("ADODB.Stream");
+                    stream.CharSet = "utf-8"; stream.Open(); stream.LoadFromFile(invFile);
+                    var text = stream.ReadText(); stream.Close();
+                    
+                    text = text.replace(/^\uFEFF/, '');
+                    var rawData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
+                    
+                    inventoryData = [];
+                    for(var i = 0; i < rawData.length; i++) {
+                        var item = rawData[i];
+                        item._searchStr = ((item.name||"") + " " + (item.ip||"") + " " + (item.mac||"") + " " + (item.phone||"") + " " + (item.room||"")).toLowerCase();
+                        inventoryData.push(item);
+                    }
+                }
+            } catch(e) { inventoryData = []; }
+        }
+
+        // ФУНКЦИЯ ЗАГРУЗКИ НОВОГО JSON ФАЙЛА (ИСПРАВЛЕННАЯ: Без блокировок безопасности)
+        function importJsonFile(event) {
+            var fileInput = event.target || window.event.srcElement;
+            var filePath = fileInput.value;
+            if (!filePath) return;
+
+            try {
+                var stream = new ActiveXObject("ADODB.Stream");
+                stream.CharSet = "utf-8";
+                stream.Open();
+                stream.LoadFromFile(filePath);
+                var text = stream.ReadText();
+                stream.Close();
+                
+                text = text.replace(/^\uFEFF/, '');
+                var newData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
+                
+                if (!newData || newData.length === undefined) {
+                    alert("Файл пуст или имеет неверный формат (ожидается массив устройств)!");
+                    document.getElementById('jsonFileInput').value = "";
+                    return;
+                }
+                
+                var mode = confirm("Файл прочитан. Объединить новые данные с текущей базой?\n\n[ОК] - Добавить в конец (Объединить)\n[Отмена] - Полностью ЗАМЕНИТЬ базу");
+                if (!mode) { inventoryData = []; }
+                
+                var addedCount = 0;
+                for (var i = 0; i < newData.length; i++) {
+                    var item = newData[i];
+                    if (item.name || item.ip) {
+                        item._searchStr = ((item.name||"") + " " + (item.ip||"") + " " + (item.mac||"") + " " + (item.phone||"") + " " + (item.room||"")).toLowerCase();
+                        inventoryData.push(item);
+                        addedCount++;
+                    }
+                }
+
+                // Перезаписываем inventory.json физически
+                var saveArr = [];
+                for (var i = 0; i < inventoryData.length; i++) {
+                    saveArr.push({
+                        "name": inventoryData[i].name,
+                        "ip": inventoryData[i].ip,
+                        "mac": inventoryData[i].mac,
+                        "phone": inventoryData[i].phone,
+                        "room": inventoryData[i].room
+                    });
+                }
+                
+                var jsonStr = (typeof JSON !== 'undefined') ? JSON.stringify(saveArr, null, 4) : "";
+                var invFile = getSafePath() + "\\inventory.json";
+                
+                var outStream = new ActiveXObject("ADODB.Stream");
+                outStream.CharSet = "utf-8";
+                outStream.Open();
+                outStream.WriteText(jsonStr);
+                outStream.SaveToFile(invFile, 2);
+                outStream.Close();
+
+                document.getElementById('jsonFileInput').value = ""; // сброс инпута
+                filterTable();
+                alert("Успешно импортировано устройств: " + addedCount + "\nЛокальная база inventory.json сохранена!");
+
+            } catch(ex) {
+                alert("Ошибка при чтении файла:\n" + ex.message);
+                document.getElementById('jsonFileInput').value = "";
+            }
+        }
+
+        function pingDevice(ipAddress, event, safeIp) {
+            if (window.event) { window.event.cancelBubble = true; }
+            else if (event) { event.stopPropagation(); }
+
+            if (!ipAddress || ipAddress === "Оффлайн" || ipAddress === "-") {
+                alert("У этого устройства нет корректного IP-адреса!");
+                return;
+            }
+
+            onlineStatuses[ipAddress] = "checking";
+            var iconEl = document.getElementById("status_" + safeIp);
+            if (iconEl) iconEl.innerText = "⌛";
+
+            setTimeout(function() {
+                try {
+                    var shell = new ActiveXObject("WScript.Shell");
+                    var fso = new ActiveXObject("Scripting.FileSystemObject");
+                    var tempFile = shell.ExpandEnvironmentStrings("%TEMP%") + "\\ping_" + new Date().getTime() + ".txt";
+                    
+                    shell.Run('cmd.exe /c ping ' + ipAddress + ' -n 1 -w 600 > "' + tempFile + '"', 0, false);
+                    
+                    var checks = 0;
+                    var intervalId = setInterval(function() {
+                        checks++;
+                        if (fso.FileExists(tempFile) || checks > 15) {
+                            clearInterval(intervalId);
+                            var success = false;
+                            
+                            try {
+                                if (fso.FileExists(tempFile)) {
+                                    var f = fso.OpenTextFile(tempFile, 1);
+                                    var content = f.AtEndOfStream ? "" : f.ReadAll();
+                                    f.Close();
+                                    fso.DeleteFile(tempFile);
+                                    
+                                    if (content.indexOf("TTL=") > -1 || content.indexOf("ttl=") > -1) {
+                                        success = true;
+                                    }
+                                }
+                            } catch(err) {}
+
+                            onlineStatuses[ipAddress] = success ? "online" : "offline";
+                            if (iconEl) iconEl.innerText = success ? "🟢" : "🔴";
+                        }
+                    }, 100);
+
+                } catch(e) {
+                    onlineStatuses[ipAddress] = "offline";
+                    if (iconEl) iconEl.innerText = "🔴";
+                }
+            }, 10);
+        }
+
+        var searchTimeout = null;
+        function handleSearchInput() {
+            var searchInput = document.getElementById("globalSearch");
+            if (searchInput.value.indexOf(',') > -1) { 
+                searchInput.value = searchInput.value.replace(/,/g, '.'); 
+            }
+            if (searchTimeout) { clearTimeout(searchTimeout); }
+            searchTimeout = setTimeout(function() { filterTable(); }, 150);
+        }
+
+        function filterTable() {
+            var searchInput = document.getElementById("globalSearch");
+            var query = searchInput ? searchInput.value.toLowerCase() : "";
+            var filtered = [];
+            
+            for (var i = 0; i < inventoryData.length; i++) {
+                if (inventoryData[i]._searchStr.indexOf(query) > -1) {
+                    filtered.push(inventoryData[i]);
+                }
+            }
+            renderTable(filtered);
+        }
+
+        function renderTable(dataArray) {
+            var tbody = document.getElementById("tableBody");
+            var html = [];
+            
+            if (dataArray.length === 0) {
+                html.push("<tr><td colspan='6' style='text-align:center; padding:20px; color:#aaa; font-size:14px;'>База пуста или ничего не найдено.<br>Убедитесь, что файл inventory.json находится рядом с программой.</td></tr>");
+            } else {
+                for (var i = 0; i < dataArray.length; i++) {
+                    var d = dataArray[i];
+                    var statusIcon = "⚪"; 
+                    var safeIp = d.ip ? d.ip.replace(/\./g, '_') : 'row_' + i;
+                    
+                    if (d.ip && d.ip !== "Оффлайн" && d.ip !== "-") {
+                        if (onlineStatuses[d.ip] === "online") {
+                            statusIcon = "🟢";
+                        } else if (onlineStatuses[d.ip] === "offline") {
+                            statusIcon = "🔴";
+                        } else if (onlineStatuses[d.ip] === "checking") {
+                            statusIcon = "⌛";
+                        } else {
+                            statusIcon = "⚫"; 
+                        }
+                    }
+                    
+                    html.push("<tr onclick=\"jumpToTerminal('" + (d.ip || d.name) + "')\">");
+                    html.push("<td><span id='status_" + safeIp + "'>" + statusIcon + "</span> " + (d.name || "-") + "</td>");
+                    html.push("<td>" + (d.ip || "-") + "</td>");
+                    html.push("<td>" + (d.mac || "-") + "</td>");
+                    html.push("<td>" + (d.phone || "-") + "</td>");
+                    html.push("<td>" + (d.room || "-") + "</td>");
+                    html.push("<td style='text-align:center;'><button class='ping-row-btn' onclick=\"pingDevice('" + d.ip + "', event, '" + safeIp + "')\">📡 Пинг</button></td>");
+                    html.push("</tr>");
+                }
+            }
+            tbody.innerHTML = html.join("");
+        }
+
+        function jumpToTerminal(ipAddress) {
+            if (ipAddress !== "Оффлайн" && ipAddress !== "-") {
+                document.getElementById("targetIp").value = ipAddress;
+                selectTool('sysinfo');
+            }
+        }
+
+        // ==========================
+        // ЛОГИКА ДОБАВЛЕНИЯ ПЛАГИНОВ
+        // ==========================
+        function closeAllModals() {
+            document.getElementById("modalOverlay").style.display = "none";
+            document.getElementById("addModal").style.display = "none";
+        }
+        function showAddModal() { 
+            document.getElementById("modalOverlay").style.display = "block"; 
+            document.getElementById("addModal").style.display = "block";
+        }
+        function savePlugin() {
+            var title = document.getElementById("newTitle").value;
+            var desc = document.getElementById("newDesc").value;
+            var cmd = document.getElementById("newCmd").value;
+            if (title === "" || cmd === "") { alert("Название и Команда — обязательные поля!"); return; }
+
+            try {
+                var pluginObj = { "title": title, "desc": desc, "cmd": cmd };
+                var jsonStr = (typeof JSON !== 'undefined') ? JSON.stringify(pluginObj, null, 4) : 
+                    '{\n  "title": "' + title.replace(/"/g, '\\"') + '",\n  "desc": "' + desc.replace(/"/g, '\\"').replace(/\n/g, '\\n') + '",\n  "cmd": "' + cmd.replace(/"/g, '\\"') + '"\n}';
+
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                var stream = new ActiveXObject("ADODB.Stream");
+                stream.CharSet = "utf-8"; stream.Open(); stream.WriteText(jsonStr);
+                stream.SaveToFile(getSafePath() + "\\plugins\\plugin_" + new Date().getTime() + ".json", 2); stream.Close();
+
+                closeAllModals(); refreshMenu();
+            } catch(e) { alert("Ошибка при сохранении: " + e.message); }
+        }
+    </script>
+</head>
+<body>
+    <div id="sidebar">
+        <button class="add-btn" onclick="showAddModal()">➕ Добавить инструмент</button>
+        <div id="toolsList"></div>
+    </div>
+    
+    <div id="main">
+        <div class="header">
+            <h2 id="toolTitle">Загрузка...</h2>
+            <span id="username"></span>
+        </div>
+        
+        <!-- РЕЖИМ 1: ТЕРМИНАЛ -->
+        <div id="terminalView">
+            <div class="target-box">
+                <label style="color: #fff; font-weight: bold; margin-right: 10px;">🎯 Целевой ПК / IP:</label>
+                <input type="text" id="targetIp" placeholder="Например: 172.29.13.191" onkeyup="fixIpInput()">
+            </div>
+            <textarea id="output" readonly></textarea>
+            <div>
+                <button class="run-btn" id="runBtn" onclick="runTool()">▶ Запустить скрипт</button>
+            </div>
+        </div>
+
+        <!-- РЕЖИМ 2: УМНЫЙ ПОИСК -->
+        <div id="searchView">
+            <!-- Аккуратный блок поиска с невидимым инпутом файла -->
+            <div class="search-bar-container">
+                <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importJsonFile(event)">
+                <input type="text" id="globalSearch" placeholder="🔎 Введите Имя, IP или Кабинет..." oninput="handleSearchInput()" style="display: inline-block; width: 60%; vertical-align: middle;">
+                <button class="run-btn" style="display: inline-block; float: none; padding: 12px 15px; border-radius: 20px; vertical-align: middle; margin-left: 10px;" onclick="document.getElementById('jsonFileInput').click()" title="Загрузить базу ПК из другого JSON файла">📂 Импорт JSON</button>
+            </div>
+            
+            <div class="table-container">
+                <table id="inventoryTable">
+                    <thead>
+                        <tr>
+                            <th width="22%">ИМЯ</th>
+                            <th width="18%">IP</th>
+                            <th width="18%">MAC</th>
+                            <th width="12%">ТЕЛЕФОН</th>
+                            <th width="20%">КАБИНЕТ</th>
+                            <th width="10%" style="text-align:center;">ПРОВЕРКА</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 10px; color: #888; font-size: 13px;">
+                Легенда: ⚫ Не проверялся | ⌛ Проверка... | 🟢 Онлайн | 🔴 Оффлайн | ⚪ Нет IP
+                <br>* Вы можете загрузить новую базу с помощью кнопки «📂 Импорт JSON». Данные сразу сохранятся в файл.
+            </div>
+        </div>
+    </div>
+
+    <!-- ТЕМНАЯ ПОДЛОЖКА ДЛЯ МОДАЛОК -->
+    <div id="modalOverlay" onclick="closeAllModals()"></div>
+
+    <!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ПЛАГИНА -->
+    <div id="addModal" class="modal-box">
+        <h3>Добавить новый инструмент (Плагин)</h3>
+        <span class="modal-label">Название в меню:</span>
+        <input type="text" id="newTitle" class="modal-input" placeholder="Например: Очистка кэша DNS">
+        <span class="modal-label">Описание инструмента:</span>
+        <textarea id="newDesc" class="modal-input" style="height: 60px; margin-bottom: 15px; resize:none;" placeholder="Что делает этот скрипт..."></textarea>
+        <span class="modal-label">Системная команда (CMD / PowerShell / WMIC):</span>
+        <textarea id="newCmd" class="modal-input" style="height: 60px; margin-bottom: 20px; resize:none;" placeholder='ipconfig /flushdns (Используйте {target} для подстановки IP)'></textarea>
+        <div style="text-align: right;">
+            <button class="tool-btn" style="width: auto; display: inline-block; padding: 10px 20px; margin-right: 10px;" onclick="closeAllModals()">Отмена</button>
+            <button class="run-btn" style="float: none;" onclick="savePlugin()">💾 Сохранить</button>
+        </div>
+    </div>
+</body>
+</html>
