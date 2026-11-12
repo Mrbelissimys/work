@@ -1,7 +1,8 @@
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta http-equiv="x-ua-compatible" content="ie=11">
     <title>SysAdmin Toolbox - СПбГУ</title>
     <HTA:APPLICATION ID="AdminApp"
         APPLICATIONNAME="SysAdminToolbox"
@@ -56,18 +57,15 @@
         td { padding: 10px 12px; border-bottom: 1px solid #333; border-right: 1px solid #333; font-size: 13px; color: #ccc; }
         tr:hover td { background-color: #2a2d34; color: #fff; }
         
-        /* Кнопка пинга в таблице */
         .ping-row-btn { background-color: #333; color: #fff; border: 1px solid #555; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; transition: 0.2s; }
         .ping-row-btn:hover { background-color: #007acc; border-color: #0098ff; }
-
-        /* Стили модальных окон */
-        #modalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; }
-        .modal-box { display: none; position: fixed; top: 50%; left: 50%; margin-left: -250px; margin-top: -240px; width: 500px; background-color: #252526; border: 1px solid #555; border-radius: 6px; padding: 25px; z-index: 1001; box-shadow: 0px 0px 20px rgba(0,0,0,0.8); }
-        .modal-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #ccc; }
-        .modal-input { width: 100%; margin-bottom: 15px; background-color: #3e3e42; color: #ccc; border: 1px solid #555; padding: 8px; border-radius: 3px; }
     </style>
     
-    <script language="JScript">
+    <script type="text/javascript">
+        var wsh = new ActiveXObject("WScript.Shell");
+        var fso = new ActiveXObject("Scripting.FileSystemObject");
+
+        // Базовые встроенные инструменты
         var baseTools = {
             "sysinfo": { title: "Сбор данных (WMI)", desc: "Собирает: имя ПК, модель ОС, разрядность и серийный номер.", cmd: 'wmic /node:"{target}" os get CSName, Caption, OSArchitecture 2>&1 | findstr /r "." & wmic /node:"{target}" bios get serialnumber 2>&1 | findstr /r "."' },
             "ping": { title: "Проверка сети (Ping)", desc: "Проверка доступности узла в сети.", cmd: 'ping {target} -n 4' },
@@ -79,6 +77,11 @@
         var inventoryData = [];
         var onlineStatuses = {};
 
+        function getSafePath() {
+            var loc = unescape(document.location.pathname).replace(/^\/|\\$/g, '').replace(/\//g, '\\');
+            return fso.GetParentFolderName(loc);
+        }
+
         window.onload = function() {
             try { var net = new ActiveXObject("WScript.Network"); document.getElementById("username").innerText = "👤 " + net.UserName; } 
             catch(e) { document.getElementById("username").innerText = "👤 Admin"; }
@@ -88,23 +91,16 @@
 
         function refreshMenu() {
             tools = {};
+            // Загружаем базовые инструменты
             for (var k in baseTools) tools[k] = baseTools[k];
+            // Загружаем внешние плагины
             loadPlugins();
             renderMenu();
         }
 
-        function getSafePath() {
-            try {
-                var loc = decodeURI(window.location.pathname);
-                if (loc.charAt(0) === '/' && loc.charAt(2) === ':') loc = loc.substr(1);
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                return fso.GetParentFolderName(loc.replace(/\//g, "\\"));
-            } catch(e) { return "."; }
-        }
-
+        // --- ОБНОВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ ПЛАГИНОВ ---
         function loadPlugins() {
             try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
                 var pluginsDir = getSafePath() + "\\plugins";
                 if (!fso.FolderExists(pluginsDir)) fso.CreateFolder(pluginsDir);
 
@@ -118,7 +114,7 @@
                             var text = stream.ReadText(); stream.Close();
                             
                             text = text.replace(/^\uFEFF/, '');
-                            var pData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
+                            var pData = JSON.parse(text);
                             pData.isPlugin = true; 
                             tools["plug_" + fso.GetBaseName(file.name)] = pData;
                         } catch(e) {}
@@ -154,7 +150,12 @@
             if (!currentTool) return;
             fixIpInput();
             var target = document.getElementById("targetIp").value;
-            if (target === "") { alert("Укажите целевой IP/Имя!"); return; }
+            
+            // Если в команде есть переменная {target}, требуем ввести IP, иначе запускаем скрипт локально (без IP)
+            if (tools[currentTool].cmd.indexOf("{target}") > -1 && target === "") { 
+                alert("Этот инструмент требует указать целевой ПК/IP!"); 
+                return; 
+            }
 
             var finalCmd = tools[currentTool].cmd.replace(/{target}/g, target);
             var outBox = document.getElementById("output");
@@ -163,24 +164,18 @@
 
             setTimeout(function() {
                 try {
-                    var shell = new ActiveXObject("WScript.Shell"); var fso = new ActiveXObject("Scripting.FileSystemObject");
-                    var tempFile = shell.ExpandEnvironmentStrings("%TEMP%") + "\\sysres.txt";
-                    shell.Run('cmd.exe /c (' + finalCmd + ') > "' + tempFile + '" 2>&1', 0, true);
+                    var tempFile = wsh.ExpandEnvironmentStrings("%TEMP%") + "\\sysres.txt";
+                    wsh.Run('cmd.exe /c (' + finalCmd + ') > "' + tempFile + '" 2>&1', 0, true);
                     
                     var res = "";
                     if (fso.FileExists(tempFile)) {
                         try {
-                            // Читаем в правильной консольной кодировке DOS (CP866), чтобы не было иероглифов
                             var stream = new ActiveXObject("ADODB.Stream"); 
-                            stream.CharSet = "ibm866"; 
-                            stream.Open(); 
-                            stream.LoadFromFile(tempFile);
-                            if (!stream.EOS) res = stream.ReadText(); 
-                            stream.Close();
+                            stream.CharSet = "ibm866"; stream.Open(); stream.LoadFromFile(tempFile);
+                            if (!stream.EOS) res = stream.ReadText(); stream.Close();
                         } catch(es) {
                             var f = fso.OpenTextFile(tempFile, 1); 
-                            if (!f.AtEndOfStream) res = f.ReadAll(); 
-                            f.Close();
+                            if (!f.AtEndOfStream) res = f.ReadAll(); f.Close();
                         }
                         fso.DeleteFile(tempFile);
                     }
@@ -188,6 +183,62 @@
                 } catch(e) { outBox.value = "ОШИБКА:\n" + e.message; }
                 document.getElementById("runBtn").disabled = false;
             }, 50);
+        }
+
+        // --- НОВЫЙ МОДУЛЬ: УМНОЕ ДОБАВЛЕНИЕ ПЛАГИНОВ ---
+        function addNewPluginFile() {
+            // Вызов диалогового окна выбора файла (внешнего скрипта)
+            var psCode = "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'Скрипты (*.ps1;*.bat;*.cmd;*.vbs;*.exe)|*.ps1;*.bat;*.cmd;*.vbs;*.exe|Все файлы (*.*)|*.*'; $f.Title = 'Выберите файл скрипта для добавления'; $f.ShowHelp = $true; if ($f.ShowDialog() -eq 'OK') { Write-Output $f.FileName }";
+            var execCmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "' + psCode + '"';
+            
+            var exec = wsh.Exec(execCmd);
+            var filePath = exec.StdOut.ReadAll().replace(/^\s+|\s+$/g, '');
+
+            if (filePath !== "") {
+                var btnName = prompt("Файл скрипта выбран!\nВведите короткое название для новой кнопки в меню:", fso.GetBaseName(filePath));
+                if (btnName && btnName.trim() !== "") {
+                    
+                    // Умная обертка: определяем как запускать файл в зависимости от расширения
+                    var ext = fso.GetExtensionName(filePath).toLowerCase();
+                    var finalRunCmd = "";
+                    
+                    if (ext === "ps1") {
+                        // Обертка для PowerShell с обходом политик
+                        finalRunCmd = 'powershell.exe -ExecutionPolicy Bypass -NoProfile -File "' + filePath + '"';
+                    } else if (ext === "bat" || ext === "cmd") {
+                        finalRunCmd = 'call "' + filePath + '"';
+                    } else if (ext === "vbs") {
+                        finalRunCmd = 'cscript.exe //nologo "' + filePath + '"';
+                    } else {
+                        finalRunCmd = '"' + filePath + '"';
+                    }
+
+                    // Формируем JSON структуру
+                    var pluginObj = { 
+                        "title": btnName, 
+                        "desc": "Внешний скрипт:\n" + filePath, 
+                        "cmd": finalRunCmd 
+                    };
+                    
+                    var jsonStr = JSON.stringify(pluginObj, null, 4);
+
+                    // Создаем папку plugins, если ее еще нет
+                    var pluginsDir = getSafePath() + "\\plugins";
+                    if (!fso.FolderExists(pluginsDir)) fso.CreateFolder(pluginsDir);
+
+                    // Сохраняем конфигурацию новой кнопки
+                    var stream = new ActiveXObject("ADODB.Stream");
+                    stream.CharSet = "utf-8"; 
+                    stream.Open(); 
+                    stream.WriteText(jsonStr);
+                    stream.SaveToFile(pluginsDir + "\\plugin_" + new Date().getTime() + ".json", 2); 
+                    stream.Close();
+
+                    // Перерисовываем меню
+                    refreshMenu();
+                    alert("Плагин '" + btnName + "' успешно добавлен в меню!");
+                }
+            }
         }
 
         // ==========================
@@ -204,17 +255,13 @@
 
         function loadAdData() {
             try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
                 var invFile = getSafePath() + "\\inventory.json";
-
                 if (fso.FileExists(invFile)) {
                     var stream = new ActiveXObject("ADODB.Stream");
                     stream.CharSet = "utf-8"; stream.Open(); stream.LoadFromFile(invFile);
                     var text = stream.ReadText(); stream.Close();
-                    
                     text = text.replace(/^\uFEFF/, '');
-                    var rawData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
-                    
+                    var rawData = JSON.parse(text);
                     inventoryData = [];
                     for(var i = 0; i < rawData.length; i++) {
                         var item = rawData[i];
@@ -225,7 +272,6 @@
             } catch(e) { inventoryData = []; }
         }
 
-        // ФУНКЦИЯ ЗАГРУЗКИ НОВОГО JSON ФАЙЛА (ИСПРАВЛЕННАЯ: Без блокировок безопасности)
         function importJsonFile(event) {
             var fileInput = event.target || window.event.srcElement;
             var filePath = fileInput.value;
@@ -233,22 +279,18 @@
 
             try {
                 var stream = new ActiveXObject("ADODB.Stream");
-                stream.CharSet = "utf-8";
-                stream.Open();
-                stream.LoadFromFile(filePath);
-                var text = stream.ReadText();
-                stream.Close();
-                
+                stream.CharSet = "utf-8"; stream.Open(); stream.LoadFromFile(filePath);
+                var text = stream.ReadText(); stream.Close();
                 text = text.replace(/^\uFEFF/, '');
-                var newData = (typeof JSON !== 'undefined') ? JSON.parse(text) : eval('(' + text + ')');
+                var newData = JSON.parse(text);
                 
                 if (!newData || newData.length === undefined) {
-                    alert("Файл пуст или имеет неверный формат (ожидается массив устройств)!");
+                    alert("Файл пуст или имеет неверный формат!");
                     document.getElementById('jsonFileInput').value = "";
                     return;
                 }
                 
-                var mode = confirm("Файл прочитан. Объединить новые данные с текущей базой?\n\n[ОК] - Добавить в конец (Объединить)\n[Отмена] - Полностью ЗАМЕНИТЬ базу");
+                var mode = confirm("Файл прочитан. Объединить новые данные с текущей базой?\n\n[ОК] - Добавить в конец\n[Отмена] - Полностью ЗАМЕНИТЬ базу");
                 if (!mode) { inventoryData = []; }
                 
                 var addedCount = 0;
@@ -261,58 +303,34 @@
                     }
                 }
 
-                // Перезаписываем inventory.json физически
                 var saveArr = [];
                 for (var i = 0; i < inventoryData.length; i++) {
-                    saveArr.push({
-                        "name": inventoryData[i].name,
-                        "ip": inventoryData[i].ip,
-                        "mac": inventoryData[i].mac,
-                        "phone": inventoryData[i].phone,
-                        "room": inventoryData[i].room
-                    });
+                    saveArr.push({"name": inventoryData[i].name, "ip": inventoryData[i].ip, "mac": inventoryData[i].mac, "phone": inventoryData[i].phone, "room": inventoryData[i].room});
                 }
                 
-                var jsonStr = (typeof JSON !== 'undefined') ? JSON.stringify(saveArr, null, 4) : "";
-                var invFile = getSafePath() + "\\inventory.json";
-                
                 var outStream = new ActiveXObject("ADODB.Stream");
-                outStream.CharSet = "utf-8";
-                outStream.Open();
-                outStream.WriteText(jsonStr);
-                outStream.SaveToFile(invFile, 2);
-                outStream.Close();
+                outStream.CharSet = "utf-8"; outStream.Open(); outStream.WriteText(JSON.stringify(saveArr, null, 4));
+                outStream.SaveToFile(getSafePath() + "\\inventory.json", 2); outStream.Close();
 
-                document.getElementById('jsonFileInput').value = ""; // сброс инпута
+                document.getElementById('jsonFileInput').value = ""; 
                 filterTable();
-                alert("Успешно импортировано устройств: " + addedCount + "\nЛокальная база inventory.json сохранена!");
-
-            } catch(ex) {
-                alert("Ошибка при чтении файла:\n" + ex.message);
-                document.getElementById('jsonFileInput').value = "";
-            }
+                alert("Успешно импортировано устройств: " + addedCount);
+            } catch(ex) { alert("Ошибка:\n" + ex.message); document.getElementById('jsonFileInput').value = ""; }
         }
 
         function pingDevice(ipAddress, event, safeIp) {
             if (window.event) { window.event.cancelBubble = true; }
             else if (event) { event.stopPropagation(); }
 
-            if (!ipAddress || ipAddress === "Оффлайн" || ipAddress === "-") {
-                alert("У этого устройства нет корректного IP-адреса!");
-                return;
-            }
-
+            if (!ipAddress || ipAddress === "Оффлайн" || ipAddress === "-") return;
             onlineStatuses[ipAddress] = "checking";
             var iconEl = document.getElementById("status_" + safeIp);
             if (iconEl) iconEl.innerText = "⌛";
 
             setTimeout(function() {
                 try {
-                    var shell = new ActiveXObject("WScript.Shell");
-                    var fso = new ActiveXObject("Scripting.FileSystemObject");
-                    var tempFile = shell.ExpandEnvironmentStrings("%TEMP%") + "\\ping_" + new Date().getTime() + ".txt";
-                    
-                    shell.Run('cmd.exe /c ping ' + ipAddress + ' -n 1 -w 600 > "' + tempFile + '"', 0, false);
+                    var tempFile = wsh.ExpandEnvironmentStrings("%TEMP%") + "\\ping_" + new Date().getTime() + ".txt";
+                    wsh.Run('cmd.exe /c ping ' + ipAddress + ' -n 1 -w 600 > "' + tempFile + '"', 0, false);
                     
                     var checks = 0;
                     var intervalId = setInterval(function() {
@@ -320,51 +338,34 @@
                         if (fso.FileExists(tempFile) || checks > 15) {
                             clearInterval(intervalId);
                             var success = false;
-                            
                             try {
                                 if (fso.FileExists(tempFile)) {
                                     var f = fso.OpenTextFile(tempFile, 1);
-                                    var content = f.AtEndOfStream ? "" : f.ReadAll();
-                                    f.Close();
-                                    fso.DeleteFile(tempFile);
-                                    
-                                    if (content.indexOf("TTL=") > -1 || content.indexOf("ttl=") > -1) {
-                                        success = true;
-                                    }
+                                    var content = f.AtEndOfStream ? "" : f.ReadAll(); f.Close(); fso.DeleteFile(tempFile);
+                                    if (content.indexOf("TTL=") > -1 || content.indexOf("ttl=") > -1) success = true;
                                 }
                             } catch(err) {}
-
                             onlineStatuses[ipAddress] = success ? "online" : "offline";
                             if (iconEl) iconEl.innerText = success ? "🟢" : "🔴";
                         }
                     }, 100);
-
-                } catch(e) {
-                    onlineStatuses[ipAddress] = "offline";
-                    if (iconEl) iconEl.innerText = "🔴";
-                }
+                } catch(e) { onlineStatuses[ipAddress] = "offline"; if (iconEl) iconEl.innerText = "🔴"; }
             }, 10);
         }
 
         var searchTimeout = null;
         function handleSearchInput() {
             var searchInput = document.getElementById("globalSearch");
-            if (searchInput.value.indexOf(',') > -1) { 
-                searchInput.value = searchInput.value.replace(/,/g, '.'); 
-            }
-            if (searchTimeout) { clearTimeout(searchTimeout); }
+            if (searchInput.value.indexOf(',') > -1) searchInput.value = searchInput.value.replace(/,/g, '.'); 
+            if (searchTimeout) clearTimeout(searchTimeout);
             searchTimeout = setTimeout(function() { filterTable(); }, 150);
         }
 
         function filterTable() {
-            var searchInput = document.getElementById("globalSearch");
-            var query = searchInput ? searchInput.value.toLowerCase() : "";
+            var query = document.getElementById("globalSearch").value.toLowerCase();
             var filtered = [];
-            
             for (var i = 0; i < inventoryData.length; i++) {
-                if (inventoryData[i]._searchStr.indexOf(query) > -1) {
-                    filtered.push(inventoryData[i]);
-                }
+                if (inventoryData[i]._searchStr.indexOf(query) > -1) filtered.push(inventoryData[i]);
             }
             renderTable(filtered);
         }
@@ -372,9 +373,8 @@
         function renderTable(dataArray) {
             var tbody = document.getElementById("tableBody");
             var html = [];
-            
             if (dataArray.length === 0) {
-                html.push("<tr><td colspan='6' style='text-align:center; padding:20px; color:#aaa; font-size:14px;'>База пуста или ничего не найдено.<br>Убедитесь, что файл inventory.json находится рядом с программой.</td></tr>");
+                html.push("<tr><td colspan='6' style='text-align:center; padding:20px; color:#aaa;'>База пуста или ничего не найдено.</td></tr>");
             } else {
                 for (var i = 0; i < dataArray.length; i++) {
                     var d = dataArray[i];
@@ -382,25 +382,15 @@
                     var safeIp = d.ip ? d.ip.replace(/\./g, '_') : 'row_' + i;
                     
                     if (d.ip && d.ip !== "Оффлайн" && d.ip !== "-") {
-                        if (onlineStatuses[d.ip] === "online") {
-                            statusIcon = "🟢";
-                        } else if (onlineStatuses[d.ip] === "offline") {
-                            statusIcon = "🔴";
-                        } else if (onlineStatuses[d.ip] === "checking") {
-                            statusIcon = "⌛";
-                        } else {
-                            statusIcon = "⚫"; 
-                        }
+                        if (onlineStatuses[d.ip] === "online") statusIcon = "🟢";
+                        else if (onlineStatuses[d.ip] === "offline") statusIcon = "🔴";
+                        else if (onlineStatuses[d.ip] === "checking") statusIcon = "⌛";
+                        else statusIcon = "⚫"; 
                     }
-                    
                     html.push("<tr onclick=\"jumpToTerminal('" + (d.ip || d.name) + "')\">");
                     html.push("<td><span id='status_" + safeIp + "'>" + statusIcon + "</span> " + (d.name || "-") + "</td>");
-                    html.push("<td>" + (d.ip || "-") + "</td>");
-                    html.push("<td>" + (d.mac || "-") + "</td>");
-                    html.push("<td>" + (d.phone || "-") + "</td>");
-                    html.push("<td>" + (d.room || "-") + "</td>");
-                    html.push("<td style='text-align:center;'><button class='ping-row-btn' onclick=\"pingDevice('" + d.ip + "', event, '" + safeIp + "')\">📡 Пинг</button></td>");
-                    html.push("</tr>");
+                    html.push("<td>" + (d.ip || "-") + "</td><td>" + (d.mac || "-") + "</td><td>" + (d.phone || "-") + "</td><td>" + (d.room || "-") + "</td>");
+                    html.push("<td style='text-align:center;'><button class='ping-row-btn' onclick=\"pingDevice('" + d.ip + "', event, '" + safeIp + "')\">📡 Пинг</button></td></tr>");
                 }
             }
             tbody.innerHTML = html.join("");
@@ -412,42 +402,12 @@
                 selectTool('sysinfo');
             }
         }
-
-        // ==========================
-        // ЛОГИКА ДОБАВЛЕНИЯ ПЛАГИНОВ
-        // ==========================
-        function closeAllModals() {
-            document.getElementById("modalOverlay").style.display = "none";
-            document.getElementById("addModal").style.display = "none";
-        }
-        function showAddModal() { 
-            document.getElementById("modalOverlay").style.display = "block"; 
-            document.getElementById("addModal").style.display = "block";
-        }
-        function savePlugin() {
-            var title = document.getElementById("newTitle").value;
-            var desc = document.getElementById("newDesc").value;
-            var cmd = document.getElementById("newCmd").value;
-            if (title === "" || cmd === "") { alert("Название и Команда — обязательные поля!"); return; }
-
-            try {
-                var pluginObj = { "title": title, "desc": desc, "cmd": cmd };
-                var jsonStr = (typeof JSON !== 'undefined') ? JSON.stringify(pluginObj, null, 4) : 
-                    '{\n  "title": "' + title.replace(/"/g, '\\"') + '",\n  "desc": "' + desc.replace(/"/g, '\\"').replace(/\n/g, '\\n') + '",\n  "cmd": "' + cmd.replace(/"/g, '\\"') + '"\n}';
-
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                var stream = new ActiveXObject("ADODB.Stream");
-                stream.CharSet = "utf-8"; stream.Open(); stream.WriteText(jsonStr);
-                stream.SaveToFile(getSafePath() + "\\plugins\\plugin_" + new Date().getTime() + ".json", 2); stream.Close();
-
-                closeAllModals(); refreshMenu();
-            } catch(e) { alert("Ошибка при сохранении: " + e.message); }
-        }
     </script>
 </head>
 <body>
     <div id="sidebar">
-        <button class="add-btn" onclick="showAddModal()">➕ Добавить инструмент</button>
+        <!-- ОБНОВЛЕННАЯ КНОПКА ДОБАВЛЕНИЯ ПЛАГИНА (ВМЕСТО МОДАЛКИ) -->
+        <button class="add-btn" onclick="addNewPluginFile()">➕ Добавить скрипт-файл</button>
         <div id="toolsList"></div>
     </div>
     
@@ -457,21 +417,16 @@
             <span id="username"></span>
         </div>
         
-        <!-- РЕЖИМ 1: ТЕРМИНАЛ -->
         <div id="terminalView">
             <div class="target-box">
                 <label style="color: #fff; font-weight: bold; margin-right: 10px;">🎯 Целевой ПК / IP:</label>
                 <input type="text" id="targetIp" placeholder="Например: 172.29.13.191" onkeyup="fixIpInput()">
             </div>
             <textarea id="output" readonly></textarea>
-            <div>
-                <button class="run-btn" id="runBtn" onclick="runTool()">▶ Запустить скрипт</button>
-            </div>
+            <div><button class="run-btn" id="runBtn" onclick="runTool()">▶ Запустить скрипт</button></div>
         </div>
 
-        <!-- РЕЖИМ 2: УМНЫЙ ПОИСК -->
         <div id="searchView">
-            <!-- Аккуратный блок поиска с невидимым инпутом файла -->
             <div class="search-bar-container">
                 <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="importJsonFile(event)">
                 <input type="text" id="globalSearch" placeholder="🔎 Введите Имя, IP или Кабинет..." oninput="handleSearchInput()" style="display: inline-block; width: 60%; vertical-align: middle;">
@@ -480,42 +435,11 @@
             
             <div class="table-container">
                 <table id="inventoryTable">
-                    <thead>
-                        <tr>
-                            <th width="22%">ИМЯ</th>
-                            <th width="18%">IP</th>
-                            <th width="18%">MAC</th>
-                            <th width="12%">ТЕЛЕФОН</th>
-                            <th width="20%">КАБИНЕТ</th>
-                            <th width="10%" style="text-align:center;">ПРОВЕРКА</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                    </tbody>
+                    <thead><tr><th width="22%">ИМЯ</th><th width="18%">IP</th><th width="18%">MAC</th><th width="12%">ТЕЛЕФОН</th><th width="20%">КАБИНЕТ</th><th width="10%" style="text-align:center;">ПРОВЕРКА</th></tr></thead>
+                    <tbody id="tableBody"></tbody>
                 </table>
             </div>
-            <div style="margin-top: 10px; color: #888; font-size: 13px;">
-                Легенда: ⚫ Не проверялся | ⌛ Проверка... | 🟢 Онлайн | 🔴 Оффлайн | ⚪ Нет IP
-                <br>* Вы можете загрузить новую базу с помощью кнопки «📂 Импорт JSON». Данные сразу сохранятся в файл.
-            </div>
-        </div>
-    </div>
-
-    <!-- ТЕМНАЯ ПОДЛОЖКА ДЛЯ МОДАЛОК -->
-    <div id="modalOverlay" onclick="closeAllModals()"></div>
-
-    <!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ПЛАГИНА -->
-    <div id="addModal" class="modal-box">
-        <h3>Добавить новый инструмент (Плагин)</h3>
-        <span class="modal-label">Название в меню:</span>
-        <input type="text" id="newTitle" class="modal-input" placeholder="Например: Очистка кэша DNS">
-        <span class="modal-label">Описание инструмента:</span>
-        <textarea id="newDesc" class="modal-input" style="height: 60px; margin-bottom: 15px; resize:none;" placeholder="Что делает этот скрипт..."></textarea>
-        <span class="modal-label">Системная команда (CMD / PowerShell / WMIC):</span>
-        <textarea id="newCmd" class="modal-input" style="height: 60px; margin-bottom: 20px; resize:none;" placeholder='ipconfig /flushdns (Используйте {target} для подстановки IP)'></textarea>
-        <div style="text-align: right;">
-            <button class="tool-btn" style="width: auto; display: inline-block; padding: 10px 20px; margin-right: 10px;" onclick="closeAllModals()">Отмена</button>
-            <button class="run-btn" style="float: none;" onclick="savePlugin()">💾 Сохранить</button>
+            <div style="margin-top: 10px; color: #888; font-size: 13px;">Легенда: ⚫ Не проверялся | ⌛ Проверка... | 🟢 Онлайн | 🔴 Оффлайн | ⚪ Нет IP</div>
         </div>
     </div>
 </body>
